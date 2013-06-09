@@ -9,3 +9,5 @@ config/database.yml
 config/database.yml.mine
 public/system
 log/*.log.*
+.bundle/
+vendor/bundle
