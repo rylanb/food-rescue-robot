@@ -3,12 +3,12 @@ class LocationsController < ApplicationController
 
   def hud
     @loc = Location.find(params[:id])
-    if (params[:key] == @loc.receipt_key) or current_volunteer.region_admin?(@loc.region) or current_volunteer.super_admin?
-      @schedules = @loc.is_donor ? Schedule.where("donor_id = ?",@loc.id) : Schedule.where("recipient_id = ?",@loc.id)
+    if (params[:key] == @loc.receipt_key) or (!current_volunteer.nil? and (current_volunteer.region_admin?(@loc.region) or current_volunteer.super_admin?))
+      @schedules = ScheduleChain.for_location(@loc)
       if @loc.is_donor
-        @logs = Log.joins(:food_types).select("sum(weight) as weight_sum, string_agg(food_types.name,', ') as food_types_combined, logs.id, logs.transport_type_id, logs.when, logs.volunteer_id").where("donor_id = ?",@loc.id).group("logs.id, logs.transport_type_id, logs.when, logs.volunteer_id").order("logs.when ASC")
+        @logs = Log.at(@loc)
       else 
-        @logs = Log.joins(:food_types).select("sum(weight) as weight_sum, string_agg(food_types.name,', ') as food_types_combined, logs.id, logs.transport_type_id, logs.when, logs.volunteer_id").where("recipient_id = ?",@loc.id).group("logs.id, logs.transport_type_id, logs.when, logs.volunteer_id").order("logs.when ASC")
+        @logs = Log.at(@loc).keep_if{ |x| x.weight_sum.to_f > 0 } 
       end
       render :hud
     else
@@ -19,16 +19,31 @@ class LocationsController < ApplicationController
   end
 
   def donors
-    index("is_donor")
+    index(Location::LocationType.invert["Donor"],"Donors")
+  end
+
+  def hubs
+    index(Location::LocationType.invert["Hub"],"Hubs")
+  end
+
+  def buyers
+    index(Location::LocationType.invert["Buyer"],"Buyers")
+  end
+
+  def sellers
+    index(Location::LocationType.invert["Seller"],"Sellers")
   end
 
   def recipients
-    index("NOT is_donor")
+    index(Location::LocationType.invert["Recipient"],"Recipients")
   end
 
-  def index(filter=nil,header="All Locations")
-    filter = filter.nil? ? "" : " AND #{filter}"
-    @locations = Location.where("region_id IN (#{current_volunteer.region_ids.join(",")})#{filter}")
+  def index(location_type=nil,header="Locations")
+    unless location_type.nil?
+      @locations = Location.regional(current_volunteer.region_ids).where("location_type = ?",location_type)
+    else
+      @locations = Location.regional(current_volunteer.region_ids)
+    end
     @header = header
     @regions = Region.all
     if current_volunteer.super_admin?
@@ -43,22 +58,28 @@ class LocationsController < ApplicationController
     @loc = Location.find(params[:id])
     unless current_volunteer.super_admin? or (current_volunteer.region_ids.include? @loc.region_id)
       flash[:notice] = "Can't view location for a region you're not assigned to..."
-      redirect_to(root_path)
+      respond_to do |format|
+        format.html
+        format.json { render json: {:error => 0, :message => flash[:notice] } }
+      end
       return
     end
-    @json = @loc.to_gmaps4rails
+    respond_to do |format|
+      format.html
+      format.json { render json: @loc.attributes }
+    end
   end
 
   def destroy
     @l = Location.find(params[:id])
     return unless check_permissions(@l)
-    @l.destroy
+    @l.active = false
+    @l.save
     redirect_to(request.referrer)
   end
 
   def new
     @location = Location.new
-    @location.is_donor = params[:is_donor]
     @location.region_id = params[:region_id]
     return unless check_permissions(@location)
     @action = "create"
@@ -77,6 +98,7 @@ class LocationsController < ApplicationController
 
   def create
     @location = Location.new(params[:location])
+    @location.populate_detailed_hours_from_form params
     return unless check_permissions(@location)
     # can't set admin bits from CRUD controls
     if @location.save
@@ -102,12 +124,13 @@ class LocationsController < ApplicationController
 
   def update
     @location = Location.find(params[:id])
+    @location.populate_detailed_hours_from_form params
     return unless check_permissions(@location)
     # can't set admin bits from CRUD controls
     if @location.update_attributes(params[:location])
       flash[:notice] = "Updated Successfully."
       unless session[:my_return_to].nil?
-        redirect_to(session[:my_return_to])
+        redirect_to session[:my_return_to]
       else
         index
       end

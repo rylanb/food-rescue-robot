@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta content='text/html; charset=UTF-8' http-equiv='Content-Type' />
+</head>
+<body>
+<p>
+  Robot Admins! This is your weekly summary :)
+</p>
+<p>
+Last week, there were <%= @num_logs %> scheduled pick-ups.
+We have data entered for <%= @num_entered %> of those.
+</p>
+<p>
+We picked up <em>at least</em> <strong><%= @lbs %> pounds</strong> of food.
+</p>
+<p>
+The biggest pickup was <%= @biggest.summed_weight %> lbs, done by <%= @biggest.volunteers.collect{ |v| v.nil? ? "Unknown" : v.name }.compact.join(", ") %>
+from <%= @biggest.donor.nil? ? "Unknown" : @biggest.donor.name %> to <%= @biggest.recipients.collect{ |r| r.nil? ? nil : r.name }.compact.join(", ") %> on <%= @biggest.when.strftime('%A') %>.
+</p>
+<% if @flagged_logs.length > 0 %>
+  <p style="font-weight: bold;">
+    These logs were flagged for us:
+  </p>
+  <ul>
+  <% @flagged_logs.each{ |l| %>
+    <li><%= l.donor.nil? ? "Unknown" : l.donor.name %> -&gt; <%= l.recipients.collect{ |e| e.nil? ? nil : e.name }.compact.join(", ") %> on <%= l.when %> for <%= l.summed_weight %> lbs</li>
+      <ul>
+        <li>Volunteers:
+        <% l.volunteers.each{ |v| %>
+          <%= v.name %> (<%= [v.email,v.phone].compact.join(",") %>)
+        <% } %>
+        <li>Description: <%= word_wrap(l.log_parts.collect{ |lp| lp.description }.join("\n\n"),70) %>
+        <li>Note: <%= word_wrap(l.notes,:line_width => 70) %>
+      </ul>
+    </li>
+  <% } %>
+  </ul>
+<% else %>
+<p>
+There were no flagged logs this week.
+</p>
+<% end %>
+
+<% if @zero_logs.length > 0 %>
+  <p style="font-weight: bold;">
+    These logs were completed with zero pounds (problems!?):
+  </p>
+  <ul>
+    <% @zero_logs.each{ |l| %>
+      <li><%= l.donor.name %> -&gt; <%= l.recipients.collect{ |e| e.nil? ? nil : e.name }.compact.join(", ") %> on <%= l.when %> for <%= l.summed_weight %> lbs</li>
+      <ul>
+        <li>Volunteers:
+          <% l.volunteers.each{ |v| %>
+            <%= v.name %> (<%= [v.email,v.phone].compact.join(",") %>)
+          <% } %>
+        <li>Description: <%= word_wrap(l.log_parts.collect{ |lp| lp.description }.join("\n\n"),70) %>
+        <li>Note: <%= word_wrap(l.notes,:line_width => 70) %>
+      </ul>
+      </li>
+    <% } %>
+  </ul>
+<% else %>
+<p>
+There were no zero-weight logs this week.
+</p>
+<% end %>
+
+<p>
+  Thanks!
+</p>
+<p>
+  *chirp* *beep*
+</p>
+--<br/>
+The Food Rescue Robot<br/>
+http://robot.boulderfoodrescue.org
+</body>
+</html>

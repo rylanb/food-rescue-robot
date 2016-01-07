@@ -2,14 +2,18 @@ class FoodTypesController < ApplicationController
   before_filter :authenticate_volunteer!
 
   def index
-    @food_types = FoodType.where("region_id IN (#{Region.all_admin(current_volunteer).collect{ |r| r.id }.join(",")})")
-    render :index
+    @food_types = FoodType.where("region_id IN (#{current_volunteer.region_ids.join(",")})")
+    respond_to do |format|
+      format.json { render json: @food_types.to_json }
+      format.html { render :index }
+    end
   end
 
   def destroy
     @l = FoodType.find(params[:id])
     return unless check_permissions(@l)
-    @l.destroy
+    @l.active = false
+    @l.save
     redirect_to(request.referrer)
   end
 

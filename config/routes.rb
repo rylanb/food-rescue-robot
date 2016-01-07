@@ -13,20 +13,31 @@ Webapp::Application.routes.draw do
     end
   end
  
+  resources :regions do 
+    get 'recipients', :on => :member
+    get 'request_rescue', :on => :member
+    as_routes 
+  end
+
   resources :cell_carriers do as_routes end
-  resources :regions do as_routes end
   resources :transport_types do as_routes end
 
   resources :food_types
+  resources :scale_types
 
-  resources :logs do 
+  resources :absences do
     collection do
-      get :today
-      get :tomorrow
-      get :yesterday
+      get :all
+    end
+  end
+
+  resources :logs do
+    collection do
+      get :by_day
       get :tardy
       get :last_ten
       get :open
+      get :todo
       get :mine_past
       get :mine_upcoming
       get :being_covered
@@ -39,13 +50,16 @@ Webapp::Application.routes.draw do
       get :create
       get :destroy
       get :stats_service
+      get :stats
+      get :export
     end
     member do
       get :take
+      get :leave
     end
   end
 
-  resources :schedules do 
+  resources :schedule_chains do 
     collection do
       get :today
       get :tomorrow
@@ -55,18 +69,25 @@ Webapp::Application.routes.draw do
       get :mine
       get :mine_old
       get :take
+      get :leave
       get :index
       get :edit
       get :update
       get :create
       get :destroy
     end
+    #member do
+    #  get :show
+    #end
   end
 
   resources :locations do
     collection do
       get :donors
       get :recipients
+      get :hubs
+      get :sellers
+      get :buyers
       get :index
       get :edit
       get :update
@@ -76,17 +97,20 @@ Webapp::Application.routes.draw do
     end
   end
 
-  devise_for :volunteers
+  devise_for :volunteers, :controllers => { :sessions => "sessions" }
+
   resources :volunteers do 
     collection do
       get :home
       get :unassigned
       get :shiftless
       get :shiftless_old
+      get :active
+      get :inactive
       get :need_training
       get :super_admin
       get :region_admin
-      get :region_stats
+      get :stats
       get :switch_user
       get :knight
       get :index
@@ -97,6 +121,9 @@ Webapp::Application.routes.draw do
       get :waiver
       get :sign_waiver
       get :assign
+    end
+    member do
+      get :reactivate
     end
   end
 

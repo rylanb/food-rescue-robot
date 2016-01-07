@@ -1,7 +1,7 @@
-<h2><%= @loc.is_donor? ? "Donor" : "Recipient" %> Schedule</h2>
+<h2><%= @loc.name %> Schedule</h2>
 
 <% unless @loc.receipt_key.nil? %>
-<br>Link to this page: <%= link_to "click here", "/locations/hud?id=#{@loc.id}&key=#{@loc.receipt_key}" %><br>
+<br>Permanent link to this page: <%= link_to "click here", "/locations/hud?id=#{@loc.id}&key=#{@loc.receipt_key}" %><br>
 <% end %>
 
 <table>
@@ -18,13 +18,13 @@
   <tbody>
   <% days_of_week = [ 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday' ] %>
   <%
-  @schedules.each do |schedule|
+  @schedules.compact.each do |schedule|
   %>
   <tr>
-    <td> <span style="display:none;"><%= schedule.day_of_week %></span> <%= days_of_week[schedule.day_of_week] %> </td>
-    <td> <%= schedule.volunteer.nil? ? "Unknown" : schedule.volunteer.name %>
-    <td> <%= schedule.time_start %> </td>
-    <td> <%= schedule.time_stop %> </td>
+    <td> <%= schedule.day_of_week.nil? ? "Unknown" : days_of_week[schedule.day_of_week] %> </td>
+    <td> <%= schedule.volunteers.empty? ? "Unknown" : schedule.volunteers.collect{ |v| v.name }.join(", ") %>
+    <td> <%= readable_start_time schedule %> </td>
+    <td> <%= readable_stop_time schedule %> </td>
     <td> <%= schedule.transport_type.nil? ? "?" : schedule.transport_type.name %>
     <td> <%= schedule.food_types.collect{ |ft| ft.name }.join(", ") %>
   </tr>
@@ -32,7 +32,7 @@
   </tbody>
 </table>
 
-<h2><%= @loc.is_donor? ? "Pick Up" : "Delivery" %> Log</h2>
+<h2><%= @loc.is_donor ? "Pick Up" : "Delivery" %> Log</h2>
 <br>
 Total poundage: <%= @logs.collect{ |l| l.summed_weight }.compact.reduce(:+) %><br><br>
 
@@ -42,6 +42,7 @@ Total poundage: <%= @logs.collect{ |l| l.summed_weight }.compact.reduce(:+) %><b
   <tr>
     <th> When </th>
     <th> Volunteer </th>
+    <% unless @loc.is_donor %><th> Donor </th><% end %>
     <th> Weight </th>
     <th> Transport Type </th>
     <th> Food Type </th>
@@ -53,18 +54,23 @@ Total poundage: <%= @logs.collect{ |l| l.summed_weight }.compact.reduce(:+) %><b
   %>
   <tr>
     <td> <%= shift.when %> </td>
-    <td> <%= shift.volunteer.nil? ? "Unknown" : shift.volunteer.name %>
+    <td> <%= shift.volunteers.empty? ? "Unknown" : shift.volunteers.collect{ |v| v.name }.join(" and ") %>
+    <% unless @loc.is_donor %><td> <%= shift.donor.nil? ? "Unknown" : shift.donor.name %><% end %>
     <td> <%= shift.weight_sum %> </td>
     <td> <%= shift.transport_type.name unless shift.transport_type.nil? %>
-    <td> <%= shift.food_types_combined %>
+    <td> <%= shift.log_parts.collect{ |lp| (!lp.food_type.nil? and !lp.weight.nil? and lp.weight > 0) ? "#{lp.food_type.name} (#{lp.weight} lb)" : nil }.compact.join(", ") %>
   </tr>
   <% end %>
   </tbody>
 </table>
+
+<% content_for :scripts do %>
 <script type="text/javascript">
 $(function () { 
   $('#data_table').dataTable( {
     'iDisplayLength' : 50,
+    "aaSorting": [[ 0, "desc" ]]
   });
 });
 </script>
+<% end %>

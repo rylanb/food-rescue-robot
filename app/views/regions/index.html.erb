@@ -1,0 +1,66 @@
+<h2><%=@header%></h2>
+
+<div style="text-align: right;">
+  <%= form_tag("/regions/new", :method => "get") do %>
+    New Region <%= submit_tag("Go") %>
+  <% end %>
+</div>
+
+<% if @regions.length == 0 %>
+
+  <p>No regions.</p>
+
+<% else %>
+
+  <table id="data_table">
+    <thead>
+      <tr>
+        <th> </th>
+        <th> Short Name </th>
+        <th> Title </th>
+        <th> Address </th>
+        <th> Notes </th>
+        <th> Stats </th>
+        <th></th>
+      </tr>
+    </thead>
+
+    <tbody>
+    <% @regions.each do |region| %>
+      <tr>
+        <td><% unless region.logo_file_name.nil? %>
+              <a href="<%= region.logo(:medium) %>"><img src="<%= region.logo(:thumb) %>"></a>
+            <% end %></td>
+        <td><%= region.name %>:
+            <% unless region.website.nil? %><%= link_to "website", region.website %><% end %>
+            <% unless region.handbook_url.nil? %><%= link_to "handbook", region.handbook_url %><% end %>
+        </td>
+        <td><%= region.title %><%= region.tagline.nil? ? "" : ": #{region.tagline}" %></td>
+        <td><%= region.address.gsub("\n","<br>").html_safe unless region.address.nil? %></td>    
+        <td><small>
+          <%= word_wrap(region.notes,:line_width => 30).gsub("\n","<br>").html_safe unless region.notes.nil? %>
+        </small></td>
+        <td>Completed Pickups: <%= Log.pickup_count region.id %>, 
+            Active Volunteers: <%= region.active_volunteer_count %>
+        </td>
+        <td>
+          <%= link_to 'edit', :controller => "regions", :action => "edit", :id => region %><br>
+          <%= link_to "delete", region, :confirm => "Are you sure?", :method => :delete %> </td>
+        </td>
+      </tr>
+    <% end %>
+    </tbody>
+
+  </table>
+
+<% end %>
+<% content_for :scripts do %>
+<script type="text/javascript">
+$(function () { 
+  $('#data_table').dataTable( {
+    'iDisplayLength' : 50,
+     "aaSorting": [[ 1, "asc" ]]
+  });
+});
+</script>
+<% end %>

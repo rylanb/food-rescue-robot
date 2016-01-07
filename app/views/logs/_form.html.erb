@@ -1,17 +1,51 @@
-<%= form_for @log, :url => {:action => @action } do |f| %>
-<table>
+<%= simple_form_for @log, :url => {:action => @action }, :class=>'form-horizontal' do |f| %>
+<!-- Errors -->
+<% if @log.errors.any? %>
+  <div id="error_explanation">
+    <strong><%= pluralize(@log.errors.count, "error") %> prohibited this log from being saved:</strong>
+      <ul>
+    <% @log.errors.full_messages.each do |msg| %>
+      <li><%= msg %></li>
+    <% end %>
+    </ul>
+  </div>
+<% end %>
+
 <%= hidden_field_tag "log[region_id]", @region.id %>
-<%= hidden_field_tag "log[schedule_id]", @log.schedule.nil? ? nil : @log.schedule.id  %>
+<%= hidden_field_tag "log[schedule_chain_id]", @log.schedule_chain.nil? ? nil : @log.schedule_chain.id  %>
+<details>
+<table>
 <tr><td>Date<td><%= f.date_select :when %>
-<tr><td>Volunteer<td><%= f.select(:volunteer_id, Volunteer.all.collect{ |v| (v.region_ids.include? @region.id) ? v : nil }.compact.collect{ |v| [v.name,v.id] },{:include_blank => true}) %>
-<tr><td>Donor<td><%= f.select(:donor_id, Location.where("is_donor AND region_id = ?",@region.id).collect{ |l| [l.name,l.id] },{:include_blank => true}) %>
-<tr><td>Recipient<td><%= f.select(:recipient_id, Location.where("NOT is_donor AND region_id = ?",@region.id).collect{ |l| [l.name,l.id] },{:include_blank => true}) %>
-<tr><td>Data<br><span class="subtext">Enter the weight and/or count for each food type.<br>Put a 0 if the pick-up didn't happen for some reason.</span></td><td>
-<table style="width: 0;"><tr><th>What<th>Weight<br>(<%= @log.region.weight_unit %>s)<th> Count<th>Description
+<tr><td>Volunteer<td>
+  <div>
+    <%= f.simple_fields_for :log_volunteers do |log_volunteer| %>
+      <%= render 'log_volunteer_fields', :f => log_volunteer %>
+    <% end %>
+    <%= link_to_add_association 'add another volunteer', f, :log_volunteers, :class=>'btn' %>
+  </div>
+  <% if current_volunteer.any_admin?(@log.region) %>
+    <tr><td>Needed Volunteers
+      <br/><span class="subtext">Default is the number required by the associated schedule, or at least one.</span>
+      <td><%= f.text_field(:num_volunteers) %>
+  <% end %>
+  <tr><td>Recipients<td>
+    <div>
+      <%= f.simple_fields_for :log_recipients do |log_recipient| %>
+        <%= render 'log_recipient_fields', :f => log_recipient %>
+      <% end %>
+      <%= link_to_add_association 'add another recipient', f, :log_recipients, :class=>'btn' %>
+    </div>
+<tr><td>Donor<td><%= f.select :donor_id, (@region.locations.donors + @region.locations.hubs + @region.locations.sellers).collect{ |d| [d.name,d.id] }, :include_blank => true, :class => 'select2' %>
+</table>
+</details>
+<table>
+<tr><td>Data<br><span class="subtext">Enter the weight and/or count for each food type.<br><br>
+                                      If the pick-up was dropped, put zeroes for the weights, and please explain why using the notes field below.</span></td><td>
+<table style="width: 0;"><tr><th>What<th>Weight<br>(<%= @log.weight_unit.nil? ? "in scale's units" : @log.weight_unit %>)<th> Count<th>Description
 <% @log.log_parts.each{ |lp| %>
   <%= fields_for :log_parts, lp, :index => "update_#{lp.id}" do |f2| %>
     <tr class="log_part" style="background: <%= lp.required ? "lightgrey" : "white" %>;">
-    <td><%= f2.select(:food_type_id, FoodType.regional(@log.region).collect{ |ft| [ft.name,ft.id] },{:include_blank => true}) %>
+    <td><%= f2.select(:food_type_id, @food_types,{:include_blank => true}) %>
     <td><%= f2.text_field(:weight,:size=>5) %>
     <td><%= f2.text_field(:count,:size=>5) %>
     <td><%= f2.text_field(:description,:size=>20) %>
@@ -21,17 +55,18 @@
 <% } %>
 <%= fields_for :log_parts, LogPart.new, :index => "new_0" do |f2| %>
   <tr class="log_part">
-  <td><%= f2.select(:food_type_id, FoodType.regional(@log.region).collect{ |ft| [ft.name,ft.id] },{:include_blank => true}) %>
+  <td><%= f2.select(:food_type_id, @food_types,{:include_blank => true}) %>
   <td><%= f2.text_field(:weight,:size=>5) %>
   <td><%= f2.text_field(:count,:size=>5) %>
   <td><%= f2.text_field(:description,:size=>20) %>
   </tr>
-</table>
+    <tr><td></td><td>TOTAL: <span id="total_weight">0</span></td></tr>
+    </table>
 <% end %>
   <%=
     task = "<tr class=\"log_part\">"
     fields_for :log_parts, LogPart.new, :index => "new_42" do |f2|
-      task += "<td>" + f2.select(:food_type_id, FoodType.regional(@log.region).collect{ |ft| [ft.name,ft.id] },{:include_blank => true})
+      task += "<td>" + f2.select(:food_type_id, @food_types,{:include_blank => true})
       task += "<td>" + f2.text_field(:weight,:size=>5)
       task += "<td>" + f2.text_field(:count,:size=>5)
       task += "<td>" + f2.text_field(:description,:size=>20)
@@ -40,17 +75,63 @@
     func_str = <<EOF
       var new_id = "new_" + new Date().getTime();
       $('#{ escape_javascript task }'.replace(/new_\\d+/g, new_id)).insertAfter($('.log_part').last());
+      $('#'+new_id).on("change",function(){ update_total_weight(); });
 EOF
-    link_to_function "+ Add Another", func_str
+      link_to_function "+ Add Another", func_str
    %>
 </td></tr>
-<tr><td>Weighed With<td><%= f.select(:weighed_by, [["Bathroom Scale","Bathroom Scale"],["Floor Scale","Floor Scale"],["Guesstimate","Guesstimate"]],{:include_blank => true}) %>
-<tr><td>Transported With<td><%= f.select(:transport_type_id, TransportType.all.collect{ |tt| [tt.name,tt.id] },{:include_blank => true}) %>
+<% if @scale_types.length != 1 %>
+<tr><td>Weighed With<td>
+<%= f.select(:scale_type_id, @scale_types, {:include_blank => true}) %>
+<% end %>
+<tr><td>Transported With<td><%= f.select(:transport_type_id, @transport_types,{:include_blank => true}) %>
+<tr><td>Time Spent<br>
+<span class="subtext">Approximately how long did you spend doing this shift, in hours? (e.g., 0.5)</span><td><%= f.text_field(:hours_spent, :size => "3") %>
 <tr><td>Notes<br>
-<span class="subtext">Something to report? Any problems? e.g., trailer<br>in need of repair, issues with the scale, busted bin.<td><%= f.text_area(:notes, :size => "30x6") %>
+<span class="subtext">Something to report? Any problems? e.g., trailer<br>in need of repair, issues with the scale, busted bin.</span><td><%= f.text_area(:notes, :size => "30x6") %>
 <tr><td>Flag For Admin<br>
 <span class="subtext">Check this if you want to make sure someone reads this.</span><td><%= f.check_box(:flag_for_admin) %>
-<tr><td>Original Volunteer<br><span class="subtext">The person originally scheduled to do<br>this shift, if you are covering it.<td><%= f.select(:orig_volunteer_id, Volunteer.all.collect{ |v| (v.region_ids.include? @region.id) ? v : nil }.compact.collect{ |v| [v.name,v.id] },{:include_blank => true}) %>
+
+  <tr id="zero_reason"><td>Why Zero?<br>
+    <span class="subtext">You're trying to save a log with zero weight. Please tell us what happened.</span>
+    <td><%= f.radio_button(:why_zero,1) %> No Food At Donor<br><%= f.radio_button(:why_zero,2) %> Shift Didn't Happen
+
 </table>
 <%= submit_tag %>
+<% end %>
+
+<% content_for :scripts do %>
+<script type="text/javascript" charset="utf-8">
+  function update_total_weight(){
+    t = 0.0
+    $( "input[id$='weight']").each(function(i){
+      v = $(this).val()
+      if(v != "" && v != undefined) {
+        t = t + parseFloat(v)
+      }
+    })
+    if(isNaN(t) || t <= 0){
+      $("#zero_reason").show();
+    }else{
+      $("#zero_reason").hide();
+    }
+    $("#total_weight").text(t)
+  }
+
+  jQuery(document).ready(function() {
+
+    //jQuery('.select2').select2({
+    //  width:'element',
+    //  placeholder:'',allowClear:true,
+    //  minimumResultsForSearch: -1
+    //});
+
+    update_total_weight();
+    $( "input[id$='weight']").each(function(i){
+      $(self).on("change",function(){
+        update_total_weight();
+      });
+    });
+  });
+</script>
 <% end %>

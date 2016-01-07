@@ -1,9 +1,10 @@
 Webapp::Application.configure do
   # Settings specified here will take precedence over those in config/application.rb
+  config.time_zone = 'Mountain Time (US & Canada)'
 
   # In the development environment your application's code is reloaded on
   # every request. This slows down response time but is perfect for development
-  # since you don't have to restart the web server when you make code changes.
+  # session since you don't have to restart the web server when you make code changes.
   config.cache_classes = false
 
   # Log error messages when you accidentally call methods on nil.
@@ -17,7 +18,7 @@ Webapp::Application.configure do
   config.action_mailer.raise_delivery_errors = true
   config.action_mailer.delivery_method = :sendmail
   config.action_mailer.perform_deliveries = true
-  config.action_mailer.default_url_options = { :host => 'alpha.boulderfoodrescue.org' }
+  config.action_mailer.default_url_options = { :host => 'robot.boulderfoodrescue.org' }
 
   # Print deprecation notices to the Rails logger
   config.active_support.deprecation = :log
@@ -36,8 +37,8 @@ Webapp::Application.configure do
   config.active_record.auto_explain_threshold_in_seconds = 0.5
 
   # Do not compress assets
-  config.assets.compress = false
+  config.assets.compress = true
 
-  # Expands the lines which load the assets
-  config.assets.debug = true
+  # Don't fallback to assets pipeline if a precompiled asset is missed
+  config.assets.compile = false
 end

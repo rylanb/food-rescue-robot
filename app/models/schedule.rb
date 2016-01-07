@@ -1,12 +1,29 @@
 class Schedule < ActiveRecord::Base
-  belongs_to :volunteer
-  belongs_to :prior_volunteer, :class_name => "Volunteer", :foreign_key => "prior_volunteer_id"
-  belongs_to :donor, :class_name => "Location", :foreign_key => "donor_id"
-  belongs_to :recipient, :class_name => "Location", :foreign_key => "recipient_id"
-  belongs_to :transport_type
-  belongs_to :region
+
+  include RankedModel
+
+  has_many :volunteers, :through => :schedule_volunteers
+  has_many :logs
+
+  belongs_to :location
+  belongs_to :schedule_chain
+  ranks :position, :with_same => :schedule_chain_id
+  default_scope order('position ASC')
+
   has_many :schedule_parts
   has_many :food_types, :through => :schedule_parts
 
-  attr_accessible :region_id, :volunteer_id, :irregular, :backup, :transport_type_id, :food_type_ids, :weekdays, :admin_notes, :day_of_week, :donor_id, :prior_volunteer_id, :public_notes, :recipient_id, :time_start, :time_stop
+  accepts_nested_attributes_for :food_types
+
+  attr_accessible :food_type_ids, :location_id, :public_notes, :admin_notes, :expected_weight,
+                  :schedule_chain_id, :position
+
+  def is_pickup_stop?
+    return self.location.nil? ? false : Location::PickupLocationTypes.include?(self.location.location_type)
+  end
+
+  def is_drop_stop?
+    return self.location.nil? ? false : Location::DropLocationTypes.include?(self.location.location_type)
+  end
+
 end

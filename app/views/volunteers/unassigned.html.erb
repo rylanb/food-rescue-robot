@@ -15,6 +15,7 @@ No unassigned volunteers...
     <th> Region </th>
     <th> Send<br>Welcome<br>Email </th>
     <th> Assign</th>
+    <th> Delete</th>
   </tr>
   </thead>
   <tbody>
@@ -25,8 +26,6 @@ No unassigned volunteers...
       row_bgcolor = "red"
     elsif v.any_admin?
       row_bgcolor = "pink"
-    elsif v.is_disabled or (!v.gone_until.nil? and v.gone_until > Date.today)
-      row_bgcolor = "grey"
     end
   %>
   <tr<% unless row_bgcolor.nil? %>style="background: <%= row_bgcolor %>;"<% end %>>
@@ -34,7 +33,7 @@ No unassigned volunteers...
     <td> <a href="mailto:<%= v.email %>"><%= v.email %></a>
     <td> <%= v.phone %>
     <td> <%= v.requested_region.nil? ? "?" : v.requested_region.name %>
-    <td> <%= (Date.today - v.created_at.to_date).to_i  %>
+    <td> <%= (Time.zone.today - v.created_at.to_date).to_i  %>
     <td>
        <%= form_tag("/volunteers/assign", :method => "get") do %>
         <%= hidden_field_tag(:volunteer_id,v.id) %>
@@ -43,12 +42,15 @@ No unassigned volunteers...
         <%= check_box_tag(:send_welcome_email,1,:checked=>true) %>
     <td>
         <%= submit_tag("Assign") %>
+    <td>
+        <%= link_to "Delete", v, :confirm => "Are you sure?", :method => :delete %>
         <% end %></td>
   </tr>
   <% end %>
   </tbody>
 </table>
 <% end %>
+<% content_for :scripts do %>
 <script type="text/javascript">
 $(function () { 
   $('#data_table').dataTable( {
@@ -56,3 +58,4 @@ $(function () {
   });
 });
 </script>
+<% end %>
